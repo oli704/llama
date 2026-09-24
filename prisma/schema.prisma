@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Pooled connection string (e.g. Neon's pooler endpoint, or Supabase's pgbouncer
+  // port) - what the running app uses. Serverless hosts open many short-lived
+  // connections; without a pooler, Postgres runs out of connection slots under load.
+  url       = env("DATABASE_URL")
+  // Unpooled/direct connection string - required for `prisma migrate` (migrations
+  // need a session-level connection, which poolers in transaction mode don't allow).
+  // Same value as DATABASE_URL if your provider doesn't distinguish the two.
+  directUrl = env("DIRECT_URL")
+}
+
+// --- Auth.js (NextAuth) required models ---
+// Shape follows the @auth/prisma-adapter schema contract exactly.
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+
+  accounts Account[]
+  sessions Session[]
+
+  household  Household?
+  pastTrips  PastTrip[]
+  suggestionSets SuggestionSet[]
+  entitlements   Entitlement[]
+
+  createdAt DateTime @default(now())
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- App domain models ---
+
+enum AgeBand {
+  BABY // 0-1
+  TODDLER // 1-3
+  PRESCHOOLER // 3-5
+}
+
+model Household {
+  id                String @id @default(cuid())
+  userId            String @unique
+  user              User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Free text, e.g. "London, UK" or "Austin, Texas" - resolved to an IATA code at
+  // suggestion time via Amadeus location search (see src/lib/amadeus.ts). Empty until
+  // the user sets it; suggestion generation requires it to be filled in.
+  homeBase          String  @default("")
+  budgetMin         Int?
+  budgetMax         Int?
+  budgetCurrency    String? // 3-letter currency code, e.g. "USD", "EUR", "GBP" - not assumed
+  tripLengthMaxDays Int     @default(7)
+  mustAvoids        String? @db.Text
+
+  kids Kid[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Kid {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  label   String
+  ageBand AgeBand
+
+  createdAt DateTime @default(now())
+}
+
+model PastTrip {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rawText     String @db.Text
+  tasteProfile Json?
+
+  createdAt DateTime @default(now())
+}
+
+model SuggestionSet {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  inputSnapshot Json
+
+  suggestions Suggestion[]
+
+  createdAt DateTime @default(now())
+}
+
+model Suggestion {
+  id              String        @id @default(cuid())
+  suggestionSetId String
+  suggestionSet   SuggestionSet @relation(fields: [suggestionSetId], references: [id], onDelete: Cascade)
+
+  rank             Int
+  destinationName  String
+  rationale        String  @db.Text
+  estCostMin       Int?
+  estCostMax       Int?
+  // 3-letter currency code the LLM chose as natural for the household's home base
+  // (e.g. USD, EUR, GBP, JPY) - cost estimates are not assumed to be GBP.
+  costCurrency     String?
+  estTripLengthDays Int?
+  kidRiskNotes     Json
+  saved            Boolean @default(false)
+
+  // Live flight price from Amadeus, annotating (not replacing) the LLM cost estimate above.
+  // Null when the lookup wasn't attempted or failed (no IATA code, no API creds, no route/dates found).
+  flightPriceAmount    Float?
+  flightPriceCurrency  String?
+  flightPriceCheckedAt DateTime?
+
+  itinerary Itinerary?
+
+  createdAt DateTime @default(now())
+}
+
+model Itinerary {
+  id           String     @id @default(cuid())
+  suggestionId String     @unique
+  suggestion   Suggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+
+  days Json
+
+  generatedAt DateTime @default(now())
+}
+
+// Reserved for the later Stripe Checkout integration - unused by v1 app logic.
+model Entitlement {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type            String
+  stripeSessionId String?
+  grantedAt       DateTime @default(now())
+}
