@@ -6,7 +6,9 @@ const publicRoutes = ["/login"];
 export default auth((req) => {
   const isPublicRoute =
     publicRoutes.includes(req.nextUrl.pathname) ||
-    req.nextUrl.pathname.startsWith("/api/auth");
+    req.nextUrl.pathname.startsWith("/api/auth") ||
+    // Called by Stripe's servers (no session); authenticated by webhook signature instead.
+    req.nextUrl.pathname === "/api/stripe/webhook";
 
   if (!req.auth && !isPublicRoute) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));

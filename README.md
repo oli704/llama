@@ -10,6 +10,7 @@ A kid-friendly reimagining of the trips you used to take, before kids. See [DESI
    - `EMAIL_SERVER_*` / `EMAIL_FROM` - SMTP credentials for magic-link sign-in emails (any provider - Resend, Postmark, Gmail app password, etc. all work via SMTP).
    - `ANTHROPIC_API_KEY` - required for trip taste-profile extraction, suggestion generation, and itinerary generation.
    - `AMADEUS_CLIENT_ID` / `AMADEUS_CLIENT_SECRET` - optional. Get test-tier credentials from [developers.amadeus.com](https://developers.amadeus.com). Without them, suggestions still work, just without a "live flight price" line.
+   - `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` - required for the Full access subscription (see "Stripe setup" below). Without them the app runs, but subscribing fails and itineraries stay locked.
 
 2. Install dependencies and push the schema to your database:
 
@@ -24,6 +25,18 @@ A kid-friendly reimagining of the trips you used to take, before kids. See [DESI
    npm run dev
    ```
 
+## Stripe setup (Full access subscription)
+
+Full itineraries are behind a €10/month "Full access" subscription, built per Stripe's [Sell subscriptions as a SaaS startup](https://docs.stripe.com/get-started/use-cases/saas-subscriptions) guide: Stripe-hosted Checkout, the Stripe customer portal, and [Entitlements](https://docs.stripe.com/billing/entitlements) for access. In the Stripe Dashboard (test mode first):
+
+1. **Product + price**: create a product (e.g. "Llama Full access") with a recurring monthly price of €10. Put the price ID (`price_...`) in `STRIPE_PRICE_ID`. If you change the amount, update `PLAN.priceLabel` in `src/lib/billing.ts` to match.
+2. **Feature**: under Product catalog → Features, create a feature with lookup key `full-access` and attach it to the product. This is what grants access - `hasFullAccess()` checks for it.
+3. **Customer portal**: configure it at Settings → Billing → Customer portal. At minimum allow updating payment methods; also enable cancellation (at period end) and invoice history.
+4. **Webhook**: add an endpoint at `https://<your-domain>/api/stripe/webhook` listening to `entitlements.active_entitlement_summary.updated`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.paid`, `invoice.payment_failed`. Put its signing secret in `STRIPE_WEBHOOK_SECRET`.
+5. **Recommended**: enable Stripe's failed-payment and card-expiry customer emails (Settings → Billing → Subscriptions and emails), and consider Stripe Tax - selling to EU consumers generally means charging VAT.
+
+Local development: `stripe listen --forward-to localhost:3000/api/stripe/webhook --events <the list above>` prints a `whsec_...` to use as `STRIPE_WEBHOOK_SECRET`. Pay with test card `4242 4242 4242 4242`, any future expiry, any CVC.
+
 ## Deploying to production
 
 **Database: Neon.** Recommended over other options here because its free tier includes built-in connection pooling, which matters for a serverless host like Vercel - each function invocation opens its own DB connection, and plain Postgres runs out of connection slots fast under concurrent traffic. Supabase works too (same pooling story via its "Session"/"Transaction" pooler modes); Railway or a self-managed Postgres box are fine if you don't mind managing pooling yourself (e.g. adding PgBouncer).
@@ -36,7 +49,7 @@ A kid-friendly reimagining of the trips you used to take, before kids. See [DESI
 
 1. Push this repo to GitHub.
 2. Create a free account at [vercel.com](https://vercel.com), then "Import Project" and point it at the repo.
-3. In the Vercel project's Settings → Environment Variables, add everything from your `.env`: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `EMAIL_SERVER_*`, `EMAIL_FROM`, `ANTHROPIC_API_KEY`, and (optionally) `AMADEUS_CLIENT_ID`/`AMADEUS_CLIENT_SECRET`.
+3. In the Vercel project's Settings → Environment Variables, add everything from your `.env`: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `EMAIL_SERVER_*`, `EMAIL_FROM`, `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` (live-mode values), and (optionally) `AMADEUS_CLIENT_ID`/`AMADEUS_CLIENT_SECRET`.
 4. Deploy. Vercel runs `npm install` (which now runs `prisma generate` via the `postinstall` script) then `next build` automatically. No `vercel.json` needed.
 5. Auth.js auto-detects the deployed URL on Vercel for magic-link callback URLs - no `AUTH_URL` needed unless you put a custom domain in front and see redirect mismatches, in which case set `AUTH_URL` to that domain.
 
@@ -54,10 +67,10 @@ A kid-friendly reimagining of the trips you used to take, before kids. See [DESI
 - Full day-by-day itinerary generation on demand for a selected suggestion
 - Save/shortlist persistence
 - Mobile-responsive layout (nav, forms, and suggestion/itinerary cards verified down to 375px)
+- Full access subscription (€10/month): offered on the homepage and on locked itinerary buttons, `/subscribe` order summary → Stripe Checkout, `/account` with the Stripe customer portal, access via Stripe Entitlements synced by webhook, itinerary generation gated server-side
 
 ## Not yet built
 
-- Stripe Checkout (the `Entitlement` model and the itinerary-gate seam exist in the schema; no payment flow is wired up - deliberately excluded from this pass)
 
 ## Known issue to track
 

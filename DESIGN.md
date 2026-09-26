@@ -10,7 +10,7 @@ Product spec this builds on: [i-want-to-create-merry-hopper.md](/Users/olivermit
 - **LLM**: Claude API (Anthropic) for taste-profile extraction, suggestion generation, and itinerary generation. Same provider for all three keeps prompting/response-shape consistent.
 - **Pricing data**: Amadeus Self-Service Flight Offers Search API for real flight pricing (free-tier sandbox available, good short-haul Europe coverage). Hotel/accommodation pricing deferred past v1 — cost bands for lodging estimated by the LLM initially, flagged in UI as "estimated."
 - **Hosting**: Vercel (pairs naturally with Next.js) + a managed Postgres (Neon/Supabase).
-- **Payments (later phase)**: Stripe Checkout — not built now, but schema below reserves the seam.
+- **Payments**: Stripe Billing — subscription via Stripe-hosted Checkout, customer portal, Entitlements (§6).
 
 ## 2. Data Model
 
@@ -43,13 +43,21 @@ Itinerary
   id, suggestionId, days (JSON array of {day, activities[], kidNotes[]}),
   generatedAt
 
-Entitlement   -- reserved for future Stripe integration, unused in v1 logic
-  id, userId, type (e.g. "itinerary_unlock"), grantedAt, stripeSessionId (nullable)
+User (billing fields)
+  stripeCustomerId (unique), entitlementsSyncedAt
+
+Entitlement   -- mirror of the customer's active Stripe Entitlements
+  id, userId, type (Stripe Feature lookup_key, e.g. "full-access"), grantedAt
+  unique (userId, type)
+
+Subscription  -- mirror of the user's Stripe subscription, for display
+  id, userId (unique), stripeSubscriptionId (unique), stripePriceId, status,
+  currentPeriodEnd, cancelAtPeriodEnd
 ```
 
 Notes:
 - `tasteProfile` / `kidRiskNotes` / `inputSnapshot` are JSON blobs rather than normalized tables — the shape will shift as prompts are tuned, and normalizing now would be premature.
-- `Entitlement` exists so the Stripe seam (§6) doesn't require a schema migration later, but nothing in v1 reads or writes it except a stubbed check.
+- `Entitlement` / `Subscription` are local mirrors of Stripe state (§6); Stripe is the source of truth.
 
 ## 3. Page Flow
 
@@ -78,11 +86,18 @@ LLM produces an estimated cost band for every suggestion, in whichever currency 
 
 **Global home base (updated from the original London-only lock)**: home base is free text for any city worldwide. `resolveIata()` in `src/lib/amadeus.ts` resolves it (and the destination) to an IATA code via Amadeus's location-search endpoint at request time, replacing the earlier hardcoded `"London" → "LON"` lookup table. This is cached in-memory per input string within a server instance's lifetime, but not persisted — a cold start re-resolves. Hotel/accommodation pricing stays LLM-estimated.
 
-## 6. Payments Seam (not built now)
+## 6. Payments — built (Full access subscription)
 
-- `Entitlement` table exists (§2) but nothing gates on it yet.
-- The natural gate, per the approved spec, is the **deep-dive itinerary** (§3.5) — free shortlist, paid full itinerary. When Stripe work starts: itinerary generation checks for an `Entitlement` of type `itinerary_unlock`, Stripe Checkout session creation + webhook writes that row on success.
-- No Stripe SDK, keys, or webhook route added in this phase — just the schema seam so it's a drop-in later rather than a migration.
+Follows Stripe's [Sell subscriptions as a SaaS startup](https://docs.stripe.com/get-started/use-cases/saas-subscriptions) guide. Changed from the original one-off `itinerary_unlock` plan to a flat-rate subscription: **Full access, €10/month**. Suggestions stay free; full itineraries need Full access.
+
+- **Entry points**: an offer card at the top of the signed-in homepage ("Get full access for €10/month"), and a locked "Get full itinerary" button on each suggestion. Both go to `/subscribe`, an order-summary page, which starts Stripe-hosted Checkout (`mode: subscription`). Cancelling Checkout returns the user to where they started.
+- **Customer**: one Stripe Customer per user, created at first checkout and stored on `User.stripeCustomerId`, so Checkout, the portal and every later subscription share it.
+- **Access = Stripe Entitlements.** A Stripe Feature (`full-access`) is attached to the product. Stripe grants and revokes it as the subscription starts, lapses or is cancelled, and fires `entitlements.active_entitlement_summary.updated`. The webhook writes the summary into `Entitlement`; `hasFullAccess()` reads that. Because access follows entitlements rather than `checkout.session.completed`, a delayed payment method doesn't get access before it's paid (the guide's caveat). Summaries carry the event time and older ones are ignored, so late deliveries can't flip access.
+- **Subscription mirror**: `Subscription` holds status, renewal date and cancel-at-period-end for the account page and a failed-payment banner. It's re-fetched from Stripe on every subscription/invoice/checkout webhook.
+- **Return from Checkout**: `/billing/success` syncs immediately (best effort) so access is usually live on landing; otherwise it shows "Confirming your payment…" until the webhooks arrive.
+- **Management**: `/account` shows plan state and opens the Stripe customer portal (update card, invoices, cancel). `invoice.payment_failed` → subscription goes `past_due` → homepage banner and account page point to the portal to update the card.
+- **Gate**: `generateItineraryForSuggestion` checks `hasFullAccess()` server-side and redirects to `/subscribe` otherwise. Itineraries generated while subscribed stay viewable after cancelling.
+- Webhook: `src/app/api/stripe/webhook/route.ts` (public in `src/proxy.ts`, authenticated by Stripe signature).
 
 ## 7. Phased Build Order
 
@@ -94,7 +109,7 @@ LLM produces an estimated cost band for every suggestion, in whichever currency 
 6. Save/shortlist persistence + `/saved` page. ✅
 7. Amadeus flight-pricing integration layered into suggestion cost bands. ✅
 8. Mobile-responsive pass across all pages. ✅ (verified at 375px against seeded data - see PR/session notes)
-9. (Later, separate phase) Stripe Checkout wired to the itinerary gate. — not started, out of scope for this pass
+9. Stripe subscription (Full access, €10/month) wired to the itinerary gate. ✅
 
 ## 8. Open Items for Build Time
 

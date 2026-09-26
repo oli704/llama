@@ -30,7 +30,15 @@ model User {
   household  Household?
   pastTrips  PastTrip[]
   suggestionSets SuggestionSet[]
-  entitlements   Entitlement[]
+
+  // Stripe customer for this user, created on first checkout and reused after that
+  // so every subscription and the billing portal hang off one customer.
+  stripeCustomerId String?       @unique
+  subscription     Subscription?
+  entitlements     Entitlement[]
+  // `created` time of the newest entitlement summary applied, so an older webhook
+  // delivered late can't overwrite a newer one (e.g. re-grant after a revoke).
+  entitlementsSyncedAt DateTime?
 
   createdAt DateTime @default(now())
 }
@@ -173,12 +181,37 @@ model Itinerary {
 }
 
 // Reserved for the later Stripe Checkout integration - unused by v1 app logic.
+// Mirror of the customer's active Stripe Entitlements (one row per Stripe Feature
+// lookup_key). Access checks read this table; it's rewritten from Stripe whenever the
+// `entitlements.active_entitlement_summary.updated` webhook fires. Stripe decides
+// when a feature is granted or revoked based on the subscription's state.
 model Entitlement {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type            String
-  stripeSessionId String?
-  grantedAt       DateTime @default(now())
+  // Stripe Feature lookup_key, e.g. "full-access"
+  type      String
+  grantedAt DateTime @default(now())
+
+  @@unique([userId, type])
+}
+
+// Mirror of the user's Stripe subscription, kept in sync by the Stripe webhook
+// (src/app/api/stripe/webhook/route.ts). Used for display on the account page
+// (renewal date, cancellation, failed payment) - access itself comes from Entitlement.
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stripeSubscriptionId String   @unique
+  stripePriceId        String
+  // Stripe subscription status: active, trialing, past_due, canceled, unpaid, incomplete, ...
+  status               String
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean  @default(false)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }

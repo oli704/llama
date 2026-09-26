@@ -7,6 +7,7 @@ import { requireUserId } from "@/lib/session";
 import { generateSuggestions } from "@/lib/llm/generateSuggestions";
 import { generateItinerary } from "@/lib/llm/generateItinerary";
 import { lookupFlightPrice } from "@/lib/amadeus";
+import { hasFullAccess } from "@/lib/billing";
 import type { HouseholdInput, SuggestionLLM, TasteProfile } from "@/lib/llm/types";
 
 export async function createSuggestionSet(formData: FormData) {
@@ -100,6 +101,12 @@ export async function generateItineraryForSuggestion(suggestionId: string) {
   });
   if (!suggestion || suggestion.suggestionSet.userId !== userId) {
     throw new Error("Not found");
+  }
+
+  // Paywall: full itineraries are a Full access feature. Checked here (not just by
+  // hiding the button) because server actions can be invoked directly.
+  if (!(await hasFullAccess(userId))) {
+    redirect(`/subscribe?returnTo=${encodeURIComponent(`/suggestions/${suggestion.suggestionSetId}`)}`);
   }
 
   const household = await prisma.household.findUnique({

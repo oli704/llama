@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { generateItineraryForSuggestion, toggleSaveSuggestion } from "@/app/actions/suggestions";
+import { PLAN, hasFullAccess } from "@/lib/billing";
+import { PendingButton } from "@/app/components/PendingButton";
 import type { ItineraryDay } from "@/lib/llm/types";
 
 export default async function SuggestionSetPage({
@@ -18,6 +21,8 @@ export default async function SuggestionSetPage({
   });
 
   if (!set || set.userId !== userId) notFound();
+
+  const fullAccess = await hasFullAccess(userId);
 
   return (
     <div className="space-y-6">
@@ -97,12 +102,22 @@ export default async function SuggestionSetPage({
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : fullAccess ? (
                 <form action={generateItineraryForSuggestion.bind(null, s.id)} className="mt-4">
-                  <button type="submit" className="rounded border border-neutral-300 px-3 py-1 text-sm">
+                  <PendingButton
+                    className="rounded border border-neutral-300 px-3 py-1 text-sm"
+                    pendingLabel="Planning your days… (this can take a minute)"
+                  >
                     Get full itinerary
-                  </button>
+                  </PendingButton>
                 </form>
+              ) : (
+                <Link
+                  href={`/subscribe?returnTo=${encodeURIComponent(`/suggestions/${set.id}`)}`}
+                  className="mt-4 inline-block rounded border border-emerald-300 bg-emerald-50 px-3 py-1 text-sm text-emerald-800"
+                >
+                  🔒 Get full itinerary · {PLAN.name} {PLAN.priceLabel}
+                </Link>
               )}
             </div>
           );
