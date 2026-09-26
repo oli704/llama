@@ -39,6 +39,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 <Link href="/trips">Trips</Link>
                 <Link href="/suggestions/new">New suggestions</Link>
                 <Link href="/saved">Saved</Link>
+                <Link href="/account">Account</Link>
                 <form
                   action={async () => {
                     "use server";

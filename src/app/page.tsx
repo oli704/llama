@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { hasFullAccess } from "@/lib/billing";
+import { SubscribeCard } from "@/app/components/SubscribeCard";
 
 export default async function Home() {
   const session = await auth();
@@ -19,13 +21,15 @@ export default async function Home() {
     );
   }
 
-  const [household, tripCount, latestSet] = await Promise.all([
+  const [household, tripCount, latestSet, fullAccess, subscription] = await Promise.all([
     prisma.household.findUnique({ where: { userId: session.user.id }, include: { kids: true } }),
     prisma.pastTrip.count({ where: { userId: session.user.id } }),
     prisma.suggestionSet.findFirst({
       where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },
     }),
+    hasFullAccess(session.user.id),
+    prisma.subscription.findUnique({ where: { userId: session.user.id } }),
   ]);
 
   const steps = [
@@ -41,6 +45,25 @@ export default async function Home() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Welcome back</h1>
+      {subscription?.status === "past_due" && (
+        <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Your last payment for Full access failed.{" "}
+          <Link href="/account" className="underline">
+            Update your payment method
+          </Link>{" "}
+          to keep your itineraries coming.
+        </p>
+      )}
+      {fullAccess ? (
+        <p className="text-sm text-emerald-700">
+          ✓ Full access active ·{" "}
+          <Link href="/account" className="underline">
+            Manage
+          </Link>
+        </p>
+      ) : (
+        <SubscribeCard returnTo="/" />
+      )}
       <ol className="space-y-3">
         {steps.map((step) => (
           <li key={step.href} className="flex items-center justify-between rounded border border-neutral-200 bg-white p-4">
