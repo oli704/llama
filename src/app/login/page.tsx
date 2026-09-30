@@ -2,10 +2,27 @@ import { signIn } from "@/auth";
 import { continueAsGuest } from "@/app/actions/guest";
 import { PendingButton } from "@/app/components/PendingButton";
 
-export default function LoginPage() {
+// Auth.js error codes (see pages.error in src/auth.ts). "Configuration" is also what a
+// failed sign-in email reports, which is the usual cause here.
+const ERROR_MESSAGES: Record<string, string> = {
+  Configuration:
+    "We couldn't send a sign-in email to that address. Check it's correct and try again, or continue without an account.",
+  Verification: "That sign-in link has expired or has already been used. Enter your email to get a new one.",
+};
+const DEFAULT_ERROR = "Something went wrong signing you in. Please try again.";
+
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const { error } = await searchParams;
+  const errorMessage = typeof error === "string" ? (ERROR_MESSAGES[error] ?? DEFAULT_ERROR) : null;
+
   return (
     <div className="mx-auto max-w-sm space-y-4">
       <h1 className="text-xl font-semibold">Sign in</h1>
+      {errorMessage && (
+        <p role="alert" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          {errorMessage}
+        </p>
+      )}
       <p className="text-sm text-neutral-600">
         We&apos;ll email you a link - no password needed.
       </p>

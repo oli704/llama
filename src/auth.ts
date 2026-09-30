@@ -7,7 +7,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   secret: process.env.AUTH_SECRET,
   session: { strategy: "database" },
-  pages: { signIn: "/login" },
+  // Errors (e.g. the sign-in email can't be sent, or an expired link) come back to the
+  // sign-in page with ?error=, which explains them, instead of Auth.js's bare error page.
+  pages: { signIn: "/login", error: "/login" },
   callbacks: {
     session({ session, user }) {
       if (session.user) session.user.id = user.id;
