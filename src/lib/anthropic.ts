@@ -24,7 +24,9 @@ export async function callStructured<T>(args: {
 }): Promise<T> {
   const response = await anthropic.messages.create({
     model: args.model,
-    max_tokens: 4096,
+    // Room for five suggestions or a multi-day itinerary. A reply that hits the cap is
+    // cut off mid-tool-call, which is what intermittently broke suggestion generation.
+    max_tokens: 16000,
     system: args.system,
     messages: [{ role: "user", content: args.prompt }],
     tools: [
@@ -39,6 +41,10 @@ export async function callStructured<T>(args: {
     ],
     tool_choice: { type: "tool", name: args.toolName },
   });
+
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(`Claude's ${args.toolName} reply was cut off at max_tokens`);
+  }
 
   const toolUse = response.content.find((block) => block.type === "tool_use");
   if (!toolUse || toolUse.type !== "tool_use") {

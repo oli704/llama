@@ -1,7 +1,11 @@
+import Link from "next/link";
 import { requireUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { addPastTrip, deletePastTrip } from "@/app/actions/trips";
+import { PendingButton } from "@/app/components/PendingButton";
 import type { TasteProfile } from "@/lib/llm/types";
+
+export const metadata = { title: "Past trips" };
 
 export default async function TripsPage() {
   const userId = await requireUserId();
@@ -20,18 +24,32 @@ export default async function TripsPage() {
         <form action={addPastTrip} className="mt-4 space-y-3 rounded border border-neutral-200 bg-white p-4">
           <textarea
             name="rawText"
+            aria-label="Your past trip"
             required
+            minLength={20}
             rows={5}
             placeholder="e.g. We spent two weeks backpacking through Vietnam, eating street food and getting lost in Hanoi's old quarter. It was chaotic and cheap and we loved having no plan..."
             className="w-full rounded border border-neutral-300 px-3 py-2"
           />
-          <button type="submit" className="rounded bg-neutral-900 px-4 py-2 text-white">
+          <p className="text-xs text-neutral-500">A couple of sentences is plenty.</p>
+          <PendingButton
+            className="rounded bg-neutral-900 px-4 py-2 text-white"
+            pendingLabel="Reading your trip… (about 10 seconds)"
+          >
             Add trip
-          </button>
+          </PendingButton>
         </form>
       </section>
 
       <section className="space-y-3">
+        {trips.some((t) => t.tasteProfile != null) && (
+          <Link
+            href="/suggestions/new"
+            className="inline-block rounded bg-emerald-700 px-4 py-2 text-sm text-white"
+          >
+            Get suggestions from {trips.length === 1 ? "this trip" : "these trips"} →
+          </Link>
+        )}
         {trips.map((trip) => {
           const profile = trip.tasteProfile as unknown as TasteProfile | null;
           return (
