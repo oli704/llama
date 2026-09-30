@@ -2,14 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { PLAN, hasFullAccess } from "@/lib/billing";
+import { isGuestEmail } from "@/lib/guest";
 import { startCheckout } from "@/app/actions/billing";
 import { PendingButton } from "@/app/components/PendingButton";
 
 // Order preview: summarises the plan before handing off to Stripe-hosted Checkout.
 export default async function SubscribePage({ searchParams }: PageProps<"/subscribe">) {
   // Signed-out visitors can view this too - startCheckout makes them a guest.
-  const userId = (await auth())?.user?.id;
-  if (userId && (await hasFullAccess(userId))) redirect("/account");
+  const user = (await auth())?.user;
+  if (user?.id && (await hasFullAccess(user.id))) redirect("/account");
+  const noAccountYet = !user || isGuestEmail(user.email);
 
   const { returnTo } = await searchParams;
   const back = typeof returnTo === "string" && returnTo.startsWith("/") && !returnTo.startsWith("//")
@@ -31,6 +33,11 @@ export default async function SubscribePage({ searchParams }: PageProps<"/subscr
         Billed monthly until you cancel. You&apos;ll enter your payment details on a secure page
         hosted by Stripe.
       </p>
+      {noAccountYet && (
+        <p className="rounded bg-neutral-50 p-3 text-sm text-neutral-700">
+          No account needed - we&apos;ll set one up with the email you enter at checkout.
+        </p>
+      )}
       <form action={startCheckout.bind(null, back)}>
         <PendingButton
           className="w-full rounded bg-emerald-700 px-4 py-2 text-white"
