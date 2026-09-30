@@ -1,5 +1,6 @@
-import { signIn } from "@/auth";
-import { rememberCurrentGuest } from "@/lib/guest";
+import { redirect } from "next/navigation";
+import { auth, signIn } from "@/auth";
+import { isGuestEmail, rememberCurrentGuest } from "@/lib/guest";
 import { continueAsGuest } from "@/app/actions/guest";
 import { PendingButton } from "@/app/components/PendingButton";
 
@@ -13,6 +14,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 const DEFAULT_ERROR = "Something went wrong signing you in. Please try again.";
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  // Auth.js returns people to the page they signed in from - this one - so send
+  // anyone already signed in (guests excepted) on to the app.
+  const user = (await auth())?.user;
+  if (user && !isGuestEmail(user.email)) redirect("/");
+
   const { error } = await searchParams;
   const errorMessage = typeof error === "string" ? (ERROR_MESSAGES[error] ?? DEFAULT_ERROR) : null;
 
