@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { requireUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { generateItineraryForSuggestion, toggleSaveSuggestion } from "@/app/actions/suggestions";
-import { PLAN, hasFullAccess } from "@/lib/billing";
+import { hasFullAccess } from "@/lib/billing";
 import { PendingButton } from "@/app/components/PendingButton";
+import { SubscribeCard } from "@/app/components/SubscribeCard";
 import type { ItineraryDay } from "@/lib/llm/types";
 import { formatAgeBand, formatMoney, formatMoneyRange } from "@/lib/format";
 
@@ -30,11 +31,13 @@ export default async function SuggestionSetPage({
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Your suggestions</h1>
+      {!fullAccess && <SubscribeCard returnTo={`/suggestions/${set.id}`} />}
       <div className="space-y-4">
         {set.suggestions.map((s) => {
           const days = s.itinerary?.days as unknown as ItineraryDay[] | undefined;
           return (
-            <div key={s.id} className="rounded border border-neutral-200 bg-white p-4 sm:p-5">
+            // id: Checkout returns here (paid or cancelled) scrolled to this card.
+            <div key={s.id} id={`s-${s.id}`} className="scroll-mt-4 rounded border border-neutral-200 bg-white p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">
@@ -116,10 +119,10 @@ export default async function SuggestionSetPage({
                 </form>
               ) : (
                 <Link
-                  href={`/subscribe?returnTo=${encodeURIComponent(`/suggestions/${set.id}`)}`}
+                  href={`/subscribe?returnTo=${encodeURIComponent(`/suggestions/${set.id}#s-${s.id}`)}`}
                   className="mt-4 inline-block rounded border border-emerald-300 bg-emerald-50 px-3 py-1 text-sm text-emerald-800"
                 >
-                  🔒 Get full itinerary · {PLAN.name} {PLAN.priceLabel}
+                  🔒 Unlock full itinerary
                 </Link>
               )}
             </div>

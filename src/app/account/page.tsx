@@ -2,15 +2,28 @@ import Link from "next/link";
 import { requireUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isGuestEmail } from "@/lib/guest";
-import { PLAN, hasLiveSubscription } from "@/lib/billing";
+import { PLAN, hasLiveSubscription, syncSubscription } from "@/lib/billing";
 import { openBillingPortal } from "@/app/actions/billing";
 import { SubscribeCard } from "@/app/components/SubscribeCard";
 import { PendingButton } from "@/app/components/PendingButton";
 
 export const metadata = { title: "Account" };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: PageProps<"/account">) {
   const userId = await requireUserId();
+  const { from, already } = await searchParams;
+
+  // Back from the Stripe billing portal: re-read the subscription so a cancellation
+  // (or resume) shows now rather than when its webhook lands. Best effort.
+  if (from === "portal") {
+    const current = await prisma.subscription.findUnique({ where: { userId } });
+    if (current) {
+      await syncSubscription(current.stripeSubscriptionId).catch((err) =>
+        console.error("Post-portal subscription sync failed", err),
+      );
+    }
+  }
+
   const [user, live] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, include: { subscription: true } }),
     hasLiveSubscription(userId),
@@ -21,6 +34,11 @@ export default async function AccountPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Account</h1>
+      {already === "1" && live && (
+        <p role="status" className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          You already have {PLAN.name} - nothing more to pay.
+        </p>
+      )}
       <p className="text-sm text-neutral-600">
         {isGuestEmail(user.email) ? (
           <>

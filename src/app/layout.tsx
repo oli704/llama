@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { auth, signOut } from "@/auth";
 import { GUEST_NOTICE_COOKIE, isGuestEmail, type GuestNotice } from "@/lib/guest";
+import { hasFullAccess } from "@/lib/billing";
+import { CheckoutCancelledNotice } from "@/app/components/CheckoutCancelledNotice";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,6 +37,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const session = await auth();
   const noticeKey = (await cookies()).get(GUEST_NOTICE_COOKIE)?.value as GuestNotice | undefined;
   const notice = session?.user && noticeKey ? GUEST_NOTICES[noticeKey] : undefined;
+  const fullAccess = session?.user?.id ? await hasFullAccess(session.user.id) : false;
 
   return (
     <html
@@ -53,6 +57,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 <Link href="/suggestions/new">New suggestions</Link>
                 <Link href="/saved">Saved</Link>
                 <Link href="/account">Account</Link>
+                {fullAccess && (
+                  <Link
+                    href="/account"
+                    className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800"
+                  >
+                    ✓ Full access
+                  </Link>
+                )}
                 {isGuestEmail(session.user.email) ? (
                   // Signing out would strand a guest's trips, so offer sign-in instead.
                   <Link href="/login" className="text-neutral-500 hover:text-neutral-900">
@@ -84,6 +96,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               {notice}
             </p>
           )}
+          <Suspense>
+            <CheckoutCancelledNotice />
+          </Suspense>
           {children}
         </main>
       </body>

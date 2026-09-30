@@ -35,10 +35,18 @@ export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/
     }
   }
 
-  const [active, user] = await Promise.all([
+  const [active, user, latestSet] = await Promise.all([
     hasFullAccess(userId),
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+    prisma.suggestionSet.findFirst({ where: { userId }, orderBy: { createdAt: "desc" }, select: { id: true } }),
   ]);
+  // Point them at where Full access pays off: the suggestions they came from, their
+  // latest ones, or getting started.
+  const next = returnTo.startsWith("/suggestions/")
+    ? { href: returnTo, label: "Back to your suggestions - itineraries unlocked →" }
+    : latestSet
+      ? { href: `/suggestions/${latestSet.id}`, label: "See your suggestions →" }
+      : { href: "/household", label: "Plan your first trip →" };
   const checkoutSessionId = typeof session_id === "string" ? session_id : "";
 
   return (
@@ -99,8 +107,8 @@ export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/
           <WaitForAccess />
         </>
       )}
-      <Link href={returnTo} className="inline-block rounded bg-neutral-900 px-4 py-2 text-sm text-white">
-        {returnTo === "/" ? "Back to Llama" : "Back to where you were"}
+      <Link href={next.href} className="inline-block rounded bg-emerald-700 px-4 py-2 text-sm text-white">
+        {next.label}
       </Link>
     </div>
   );
