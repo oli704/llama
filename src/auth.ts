@@ -16,6 +16,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
+  events: {
+    // A guest signing in brings their trips and Full access along. Imported lazily
+    // because that module imports this one.
+    async signIn({ user }) {
+      if (!user.id) return;
+      const { moveRememberedGuestInto } = await import("@/lib/guestMerge");
+      await moveRememberedGuestInto(user.id);
+    },
+  },
   providers: [
     Nodemailer({
       server: {

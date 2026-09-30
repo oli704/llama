@@ -6,12 +6,14 @@ import { claimGuestEmail, isGuestEmail } from "@/lib/guest";
 import { PLAN, hasFullAccess, idOf, syncEntitlements, syncSubscription } from "@/lib/billing";
 import { emailSignInLink } from "@/app/actions/account";
 import { PendingButton } from "@/app/components/PendingButton";
+import { WaitForAccess } from "./WaitForAccess";
 
 export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/billing/success">) {
   const userId = await requireUserId();
   const { session_id, link } = await searchParams;
 
   let returnTo = "/";
+  let checkoutEmail: string | null = null;
   if (typeof session_id === "string" && session_id.startsWith("cs_")) {
     // Sync now rather than waiting on the webhooks, so access is live the moment they
     // land here if Stripe has already granted it. The webhooks do the same sync, so
@@ -21,6 +23,7 @@ export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/
       const session = await stripe().checkout.sessions.retrieve(session_id);
       if (session.client_reference_id === userId && session.subscription && session.customer) {
         returnTo = session.metadata?.returnTo ?? "/";
+        checkoutEmail = session.customer_details?.email ?? null;
         await syncSubscription(idOf(session.subscription));
         await syncEntitlements(idOf(session.customer));
         await claimGuestEmail(userId, session.customer_details?.email);
@@ -44,22 +47,31 @@ export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/
           <p className="text-sm text-neutral-700">
             {PLAN.name} is active. Every suggestion now comes with a full day-by-day itinerary.
           </p>
-          {isGuestEmail(user.email) ? (
-            // Only if the checkout email already belonged to another account.
-            <p className="text-sm text-neutral-700">
-              Your {PLAN.name} is saved in this browser.
-            </p>
-          ) : (
-            <div className="space-y-3 rounded bg-neutral-50 p-3 text-sm text-neutral-700">
+          <div className="space-y-3 rounded bg-neutral-50 p-3 text-sm text-neutral-700">
+            {!isGuestEmail(user.email) ? (
               <p>
                 Your account is <strong>{user.email}</strong>. Use this email to sign in on any
                 other device.
               </p>
-              {link === "sent" ? (
-                <p className="text-emerald-700">
-                  ✓ Sign-in link sent - check your inbox for an email from Llama.
-                </p>
-              ) : (
+            ) : checkoutEmail ? (
+              // The checkout email already belongs to another account, so this guest
+              // couldn't take it. Signing in to that account (from this browser) moves
+              // Full access and the guest's trips across - see src/lib/guestMerge.ts.
+              <p>
+                <strong>{checkoutEmail}</strong> already has a Llama account. We&apos;ve kept your{" "}
+                {PLAN.name} in this browser for now - email yourself a sign-in link and open it
+                here to move it, and your trips, to that account.
+              </p>
+            ) : (
+              <p>Your {PLAN.name} is saved in this browser.</p>
+            )}
+            {link === "sent" ? (
+              <p className="text-emerald-700">
+                ✓ Sign-in link sent - check your inbox for an email from Llama
+                {isGuestEmail(user.email) ? " and open it in this browser" : ""}.
+              </p>
+            ) : (
+              (!isGuestEmail(user.email) || checkoutEmail) && (
                 <>
                   {link === "failed" && (
                     <p className="text-amber-700">
@@ -75,17 +87,14 @@ export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/
                     </PendingButton>
                   </form>
                 </>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
         </>
       ) : (
         <>
           <h1 className="text-xl font-semibold">Confirming your payment…</h1>
-          <p className="text-sm text-neutral-700">
-            Stripe is still processing this. It usually takes a few seconds - refresh this page,
-            or check your <Link href="/account" className="underline">account</Link>.
-          </p>
+          <WaitForAccess />
         </>
       )}
       <Link href={returnTo} className="inline-block rounded bg-neutral-900 px-4 py-2 text-sm text-white">

@@ -66,7 +66,10 @@ async function userForCustomer(customerId: string, metadataUserId?: string) {
 // that we page through the List Active Entitlements API). `asOf` is the event's
 // created time: summaries older than the last one applied are ignored, so
 // out-of-order deliveries can't resurrect or revoke access wrongly.
-// Without a summary (e.g. on return from Checkout) it lists them from the API.
+// Without a summary (e.g. on return from Checkout) it lists them from the API. That
+// read doesn't move the watermark: right after Checkout the list can still be empty,
+// and stamping it "now" would make the grant's summary (created a moment earlier)
+// look stale and be dropped - leaving a paid subscription without access.
 export async function syncEntitlements(
   customerId: string,
   summary?: { lookupKeys: string[]; hasMore: boolean; asOf: Date },
@@ -87,8 +90,6 @@ export async function syncEntitlements(
       lookupKeys.push(ent.lookup_key);
     }
   }
-  const asOf = summary?.asOf ?? new Date();
-
   await prisma.$transaction([
     prisma.entitlement.deleteMany({ where: { userId: user.id, type: { notIn: lookupKeys } } }),
     ...lookupKeys.map((type) =>
@@ -98,7 +99,9 @@ export async function syncEntitlements(
         update: {},
       }),
     ),
-    prisma.user.update({ where: { id: user.id }, data: { entitlementsSyncedAt: asOf } }),
+    ...(summary
+      ? [prisma.user.update({ where: { id: user.id }, data: { entitlementsSyncedAt: summary.asOf } })]
+      : []),
   ]);
 }
 

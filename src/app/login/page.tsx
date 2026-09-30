@@ -1,4 +1,5 @@
 import { signIn } from "@/auth";
+import { rememberCurrentGuest } from "@/lib/guest";
 import { continueAsGuest } from "@/app/actions/guest";
 import { PendingButton } from "@/app/components/PendingButton";
 
@@ -29,6 +30,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <form
         action={async (formData) => {
           "use server";
+          await rememberCurrentGuest();
           await signIn("nodemailer", formData);
         }}
         className="space-y-3"
