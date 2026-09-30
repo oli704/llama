@@ -41,7 +41,6 @@ export async function upsertHousehold(formData: FormData) {
   });
 
   revalidatePath("/household");
-  revalidatePath("/onboarding");
   // Confirms the save and points at the next step (see the household page).
   redirect("/household?saved=1");
 }
@@ -67,7 +66,6 @@ export async function addKid(formData: FormData) {
   });
 
   revalidatePath("/household");
-  revalidatePath("/onboarding");
 }
 
 export async function removeKid(kidId: string) {
@@ -84,5 +82,4 @@ export async function removeKid(kidId: string) {
   await prisma.kid.delete({ where: { id: kidId } });
 
   revalidatePath("/household");
-  revalidatePath("/onboarding");
 }

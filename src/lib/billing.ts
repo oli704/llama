@@ -123,7 +123,9 @@ export async function syncSubscription(subscriptionId: string): Promise<void> {
     stripePriceId: item?.price.id ?? "",
     status: sub.status,
     currentPeriodEnd: new Date((item?.current_period_end ?? sub.created) * 1000),
-    cancelAtPeriodEnd: sub.cancel_at_period_end,
+    // Newer Stripe API versions record a portal "cancel at end of period" as a
+    // cancel_at date rather than cancel_at_period_end, so treat either as cancelling.
+    cancelAtPeriodEnd: sub.cancel_at_period_end || sub.cancel_at != null,
   };
 
   // One Subscription row per user: a resubscribe after cancellation replaces the
