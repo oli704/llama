@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUserId } from "@/lib/session";
 import { stripe } from "@/lib/stripe";
+import { claimGuestEmail } from "@/lib/guest";
 import { PLAN, hasFullAccess, idOf, syncEntitlements, syncSubscription } from "@/lib/billing";
 
 export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/billing/success">) {
@@ -19,6 +20,7 @@ export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/
         returnTo = session.metadata?.returnTo ?? "/";
         await syncSubscription(idOf(session.subscription));
         await syncEntitlements(idOf(session.customer));
+        await claimGuestEmail(userId, session.customer_details?.email);
       }
     } catch (err) {
       console.error("Post-checkout sync failed", err);

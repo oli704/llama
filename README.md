@@ -67,6 +67,7 @@ Local development: `stripe listen --forward-to localhost:3000/api/stripe/webhook
 - Full day-by-day itinerary generation on demand for a selected suggestion
 - Save/shortlist persistence
 - Mobile-responsive layout (nav, forms, and suggestion/itinerary cards verified down to 375px)
+- Guest mode: "Try it now - no account needed" on the homepage (and "Continue without an account" on sign-in) starts a guest account in that browser, so the whole app works without signing in. Signed-out visitors can also subscribe straight from the homepage; Stripe Checkout collects their email, which the guest account then takes so they can sign back in to it (`src/lib/guest.ts`)
 - Full access subscription (€10/month): offered on the homepage and on locked itinerary buttons, `/subscribe` order summary → Stripe Checkout, `/account` with the Stripe customer portal, access via Stripe Entitlements synced by webhook, itinerary generation gated server-side
 
 ## Not yet built

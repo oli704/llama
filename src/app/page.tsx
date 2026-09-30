@@ -2,21 +2,37 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { hasFullAccess } from "@/lib/billing";
+import { isGuestEmail } from "@/lib/guest";
 import { SubscribeCard } from "@/app/components/SubscribeCard";
+import { PendingButton } from "@/app/components/PendingButton";
+import { continueAsGuest } from "@/app/actions/guest";
 
 export default async function Home() {
   const session = await auth();
 
   if (!session?.user) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Llama</h1>
-        <p className="text-neutral-600">
-          A kid-friendly reimagining of the trips you used to take, before kids.
-        </p>
-        <Link href="/login" className="inline-block rounded bg-neutral-900 px-4 py-2 text-white">
-          Sign in
-        </Link>
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <h1 className="text-2xl font-semibold">Llama</h1>
+          <p className="text-neutral-600">
+            A kid-friendly reimagining of the trips you used to take, before kids.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <form action={continueAsGuest.bind(null, "/household")}>
+              <PendingButton
+                className="rounded bg-neutral-900 px-4 py-2 text-white"
+                pendingLabel="Setting things up…"
+              >
+                Try it now - no account needed
+              </PendingButton>
+            </form>
+            <Link href="/login" className="text-sm underline">
+              Sign in
+            </Link>
+          </div>
+        </div>
+        <SubscribeCard returnTo="/" />
       </div>
     );
   }
@@ -44,7 +60,9 @@ export default async function Home() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Welcome back</h1>
+      <h1 className="text-2xl font-semibold">
+        {isGuestEmail(session.user.email) ? "Welcome" : "Welcome back"}
+      </h1>
       {subscription?.status === "past_due" && (
         <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           Your last payment for Full access failed.{" "}

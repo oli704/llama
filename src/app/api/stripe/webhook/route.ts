@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
+import { claimGuestEmail } from "@/lib/guest";
 import { idOf, subscriptionIdFromInvoice, syncEntitlements, syncSubscription } from "@/lib/billing";
 
 // Stripe -> app sync. Subscription events re-fetch the subscription from Stripe, and
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
         const session = event.data.object;
         if (session.mode === "subscription" && session.subscription) {
           await syncSubscription(idOf(session.subscription));
+          await claimGuestEmail(session.client_reference_id, session.customer_details?.email);
         }
         break;
       }

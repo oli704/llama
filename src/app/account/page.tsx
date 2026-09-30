@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { requireUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { isGuestEmail } from "@/lib/guest";
 import { PLAN, hasLiveSubscription } from "@/lib/billing";
 import { openBillingPortal } from "@/app/actions/billing";
 import { SubscribeCard } from "@/app/components/SubscribeCard";
@@ -17,7 +19,19 @@ export default async function AccountPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Account</h1>
-      <p className="text-sm text-neutral-600">Signed in as {user.email}</p>
+      <p className="text-sm text-neutral-600">
+        {isGuestEmail(user.email) ? (
+          <>
+            You&apos;re using Llama as a guest - your trips are kept in this browser.{" "}
+            <Link href="/login" className="underline">
+              Sign in
+            </Link>{" "}
+            to use an email account instead.
+          </>
+        ) : (
+          <>Signed in as {user.email}</>
+        )}
+      </p>
 
       {live && sub ? (
         <div className="space-y-3 rounded border border-neutral-200 bg-white p-4 sm:p-5">

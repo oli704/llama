@@ -1,4 +1,6 @@
 import { signIn } from "@/auth";
+import { continueAsGuest } from "@/app/actions/guest";
+import { PendingButton } from "@/app/components/PendingButton";
 
 export default function LoginPage() {
   return (
@@ -24,6 +26,14 @@ export default function LoginPage() {
         <button type="submit" className="w-full rounded bg-neutral-900 px-4 py-2 text-white">
           Send sign-in link
         </button>
+      </form>
+      <form action={continueAsGuest.bind(null, "/")} className="border-t border-neutral-200 pt-4">
+        <PendingButton
+          className="w-full rounded border border-neutral-300 px-4 py-2 text-sm"
+          pendingLabel="Setting things up…"
+        >
+          Continue without an account
+        </PendingButton>
       </form>
     </div>
   );

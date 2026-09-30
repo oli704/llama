@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { isGuestEmail } from "@/lib/guest";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,16 +41,23 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 <Link href="/suggestions/new">New suggestions</Link>
                 <Link href="/saved">Saved</Link>
                 <Link href="/account">Account</Link>
-                <form
-                  action={async () => {
-                    "use server";
-                    await signOut();
-                  }}
-                >
-                  <button className="text-neutral-500 hover:text-neutral-900" type="submit">
-                    Sign out
-                  </button>
-                </form>
+                {isGuestEmail(session.user.email) ? (
+                  // Signing out would strand a guest's trips, so offer sign-in instead.
+                  <Link href="/login" className="text-neutral-500 hover:text-neutral-900">
+                    Guest · Sign in
+                  </Link>
+                ) : (
+                  <form
+                    action={async () => {
+                      "use server";
+                      await signOut();
+                    }}
+                  >
+                    <button className="text-neutral-500 hover:text-neutral-900" type="submit">
+                      Sign out
+                    </button>
+                  </form>
+                )}
               </nav>
             ) : (
               <Link href="/login" className="text-sm">

@@ -9,6 +9,7 @@
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import { isGuestEmail } from "@/lib/guest";
 
 // Display copy only - the amount actually charged is whatever STRIPE_PRICE_ID is set
 // to in Stripe. Keep the two in step.
@@ -42,7 +43,8 @@ export async function getOrCreateStripeCustomer(userId: string): Promise<string>
   if (user.stripeCustomerId) return user.stripeCustomerId;
 
   const customer = await stripe().customers.create({
-    email: user.email,
+    // Guests have a placeholder email; leaving it off makes Checkout ask for a real one.
+    email: isGuestEmail(user.email) ? undefined : user.email,
     name: user.name ?? undefined,
     metadata: { userId },
   });

@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireUserId } from "@/lib/session";
+import { auth } from "@/auth";
 import { PLAN, hasFullAccess } from "@/lib/billing";
 import { startCheckout } from "@/app/actions/billing";
 import { PendingButton } from "@/app/components/PendingButton";
 
 // Order preview: summarises the plan before handing off to Stripe-hosted Checkout.
 export default async function SubscribePage({ searchParams }: PageProps<"/subscribe">) {
-  const userId = await requireUserId();
-  if (await hasFullAccess(userId)) redirect("/account");
+  // Signed-out visitors can view this too - startCheckout makes them a guest.
+  const userId = (await auth())?.user?.id;
+  if (userId && (await hasFullAccess(userId))) redirect("/account");
 
   const { returnTo } = await searchParams;
   const back = typeof returnTo === "string" && returnTo.startsWith("/") && !returnTo.startsWith("//")

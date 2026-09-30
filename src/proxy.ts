@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 
-const publicRoutes = ["/login"];
+// Signed-out visitors can see the homepage and the plan summary; both offer to carry
+// on as a guest (see src/lib/guest.ts).
+const publicRoutes = ["/", "/login", "/subscribe"];
 
 export default auth((req) => {
   const isPublicRoute =

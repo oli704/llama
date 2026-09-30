@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireUserId } from "@/lib/session";
+import { getOrCreateUserId } from "@/lib/guest";
 import { stripe } from "@/lib/stripe";
 import { getOrCreateStripeCustomer, hasFullAccess, hasLiveSubscription } from "@/lib/billing";
 
@@ -18,8 +19,10 @@ function safeReturnPath(returnTo: string): string {
   return returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
 }
 
+// Signed-out visitors can subscribe straight away: they become a guest here, and
+// Stripe Checkout collects their email.
 export async function startCheckout(returnTo: string) {
-  const userId = await requireUserId();
+  const userId = await getOrCreateUserId();
   const returnPath = safeReturnPath(returnTo);
 
   // Already subscribed: send them to manage the existing subscription instead of
