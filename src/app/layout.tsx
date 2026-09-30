@@ -17,7 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Llama - family trip re-creator",
+  // Pages set their own `title`, shown as e.g. "Household · Llama".
+  title: { default: "Llama - family trip re-creator", template: "%s · Llama" },
   description: "Kid-friendly reimaginings of the trips you used to take.",
 };
 

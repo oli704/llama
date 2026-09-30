@@ -6,6 +6,8 @@ import { isGuestEmail } from "@/lib/guest";
 import { startCheckout } from "@/app/actions/billing";
 import { PendingButton } from "@/app/components/PendingButton";
 
+export const metadata = { title: "Full access" };
+
 // Order preview: summarises the plan before handing off to Stripe-hosted Checkout.
 export default async function SubscribePage({ searchParams }: PageProps<"/subscribe">) {
   // Signed-out visitors can view this too - startCheckout makes them a guest.

@@ -4,6 +4,8 @@ import { isGuestEmail, rememberCurrentGuest } from "@/lib/guest";
 import { continueAsGuest } from "@/app/actions/guest";
 import { PendingButton } from "@/app/components/PendingButton";
 
+export const metadata = { title: "Sign in" };
+
 // Auth.js error codes (see pages.error in src/auth.ts). "Configuration" is also what a
 // failed sign-in email reports, which is the usual cause here.
 const ERROR_MESSAGES: Record<string, string> = {

@@ -8,6 +8,8 @@ import { emailSignInLink } from "@/app/actions/account";
 import { PendingButton } from "@/app/components/PendingButton";
 import { WaitForAccess } from "./WaitForAccess";
 
+export const metadata = { title: "Payment" };
+
 export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/billing/success">) {
   const userId = await requireUserId();
   const { session_id, link } = await searchParams;

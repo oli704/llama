@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
@@ -41,6 +42,8 @@ export async function upsertHousehold(formData: FormData) {
 
   revalidatePath("/household");
   revalidatePath("/onboarding");
+  // Confirms the save and points at the next step (see the household page).
+  redirect("/household?saved=1");
 }
 
 export async function addKid(formData: FormData) {

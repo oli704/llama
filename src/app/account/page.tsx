@@ -7,6 +7,8 @@ import { openBillingPortal } from "@/app/actions/billing";
 import { SubscribeCard } from "@/app/components/SubscribeCard";
 import { PendingButton } from "@/app/components/PendingButton";
 
+export const metadata = { title: "Account" };
+
 export default async function AccountPage() {
   const userId = await requireUserId();
   const [user, live] = await Promise.all([

@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 
 // Signed-out visitors can see the homepage and the plan summary; both offer to carry
 // on as a guest (see src/lib/guest.ts).
-const publicRoutes = ["/", "/login", "/subscribe"];
+const publicRoutes = ["/", "/login", "/login/check-email", "/subscribe"];
 
 export default auth((req) => {
   const isPublicRoute =

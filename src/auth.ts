@@ -9,7 +9,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "database" },
   // Errors (e.g. the sign-in email can't be sent, or an expired link) come back to the
   // sign-in page with ?error=, which explains them, instead of Auth.js's bare error page.
-  pages: { signIn: "/login", error: "/login" },
+  pages: { signIn: "/login", error: "/login", verifyRequest: "/login/check-email" },
   callbacks: {
     session({ session, user }) {
       if (session.user) session.user.id = user.id;

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
+export const metadata = { title: "Saved trips" };
+
 export default async function SavedPage() {
   const userId = await requireUserId();
 
